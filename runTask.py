@@ -1,3 +1,4 @@
-from tasks import add
+from myTask import add
 
-add.delay(4, 4)
+data = add.delay(4, 3)
+print(data.get(propagate=False))
