@@ -1,4 +1,4 @@
 from myTask import add
 
-data = add.delay(4, 3)
+data = countTweets.delay(time=30)
 print(data.get(propagate=False))

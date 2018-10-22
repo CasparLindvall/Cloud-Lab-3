@@ -1,7 +1,89 @@
 from celery import Celery
+import tarfile, json
+import timeit
+
+# To ge the run time
+start = timeit.default_timer()
 
 app = Celery('tasks', backend='rpc://', broker='amqp://localhost//')
 
+#total tweets searched
+tweetCounter = 0
+
+# Words to count
+model = {
+    "han": 0,
+    "hon": 0,
+    "den": 0,
+    "det": 0,
+    "hen": 0,
+    "denna": 0,
+    "denne": 0
+}
+# Characters to potentially remove, though inefficient method
+def removeChar( source ):
+    source = source.replace( '?', ' ' )
+    source = source.replace( '!', ' ' )
+    source = source.replace( ";", ' ' )
+    source = source.replace( " '", ' ' )
+    source = source.replace( "' ", ' ' )
+    source = source.replace( ".", ' ' )
+    source = source.replace( ",", ' ' )
+    source = source.replace( "\"", ' ' )
+    source = source.replace( "(", ' ( ' )
+    source = source.replace( ")", ' ) ' )
+    source = source.replace( '\r', ' ' )
+    source = source.replace( '\t', ' ' )
+    source = source.replace( '\n', ' ' )
+    return source
+
+# Words to potentially remove
+#stopWords = open("stopwords.txt").read().splitlines()
+
+# Format for easier
+def formatStr(source):
+    source = source.replace('\n\n', '\n' )
+    source = source.lower()
+    sourceArr = source.splitlines()
+    #[word for word in tokenized_words if word not in stop_words]
+    return sourceArr
+
 @app.task
-def add(x, y):
-    return x + y
+def countTweets(timeLimit=None):
+	f = None
+	timeStart = timeit.default_timer()
+	tar = tarfile.open("data.tar.gz", "r:gz")
+	for member in tar.getmembers():
+		if(timeLimit):
+			if(timeLimit - timeStart < 0):
+				break
+	    f = tar.extractfile(member)
+	    if f:
+	        content = f.read()
+	        contentArr = formatStr(content)
+	        for tweetString in contentArr:
+	            tweetDict = json.loads(tweetString)
+	            tweetText = tweetDict["text"].encode("utf-8")
+	            tweetText = removeChar(tweetText)
+	            #tweetText = [word for word in tweetText if word not in stopWords]
+	            for word in tweetText.split():
+	                if word in model:
+	                    model[word] += 1
+	        tweetCounter += len(contentArr)
+
+	        for word, occ in model.items():
+	            print(word + "\t: " + str(occ)+ "\t" + "{0:.2f}".format(occ/float(tweetCounter)*100)+"%"+" of tweets")
+	    print('Time: ' + "\t{0:.2f}".format(timeit.default_timer() - start) +"\tTweets counted: "+ str(tweetCounter))
+	    print("")
+
+# For printing values
+y = []
+x_label = []
+for word, occ in model.items():
+    y.append(occ)
+    x_label.append(word)
+
+print("Collected data. May be used for plotting in plotData.py")
+print("y = ", y)
+print("x_label", x_label)
+print("count = ", tweetCounter)
